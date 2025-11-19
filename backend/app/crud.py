@@ -1,27 +1,27 @@
-from sqlalchemy.orm import Session
-from . import models, schemas
+from . import models
 
-def get_state(db: Session, phone: str):
+def get_state(db, phone):
     return db.query(models.ConversationState).filter_by(phone=phone).first()
 
-def save_state(db: Session, state):
-    db.add(state)
+def set_state(db, phone, step, **kwargs):
+    state = get_state(db, phone)
+    if not state:
+        state = models.ConversationState(phone=phone, step=step)
+        db.add(state)
+
+    state.step = step
+
+    for key, value in kwargs.items():
+        setattr(state, key, value)
+
     db.commit()
     db.refresh(state)
+    return state
 
-def delete_state(db: Session, state):
-    db.delete(state)
-    db.commit()
 
-def create_review(db: Session, payload: schemas.ReviewCreate):
-    obj = models.Review(
-        phone=payload.phone,
-        user_name=payload.user_name,
-        product_name=payload.product_name,
-        rating=payload.rating,
-        review_text=payload.review_text,
-    )
-    db.add(obj)
+def create_review(db, data):
+    review = models.Review(**data.dict())
+    db.add(review)
     db.commit()
-    db.refresh(obj)
-    return obj
+    db.refresh(review)
+    return review

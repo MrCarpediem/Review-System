@@ -5,7 +5,7 @@ class ReviewCreate(BaseModel):
     user_name: str
     product_name: str
     rating: int
-    review_text: str
+    product_review: str
 
 class ReviewOut(BaseModel):
     id: int
@@ -13,7 +13,7 @@ class ReviewOut(BaseModel):
     user_name: str
     product_name: str
     rating: int
-    review_text: str
+    product_review: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True

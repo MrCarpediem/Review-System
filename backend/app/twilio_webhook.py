@@ -1,54 +1,69 @@
-from fastapi import APIRouter, Form, Depends, Request
-from sqlalchemy.orm import Session
-from .database import get_db
-from . import crud, models, schemas, utils, conversation_state
+from fastapi import APIRouter, Form
+from .database import SessionLocal
+from .models import Review
+from datetime import datetime
 
 router = APIRouter()
 
+user_sessions = {}
+
 @router.post("/twilio-webhook")
-async def webhook(
-    request: Request,
-    From: str = Form(...),
-    Body: str = Form(...),
-    db: Session = Depends(get_db)
-):
-    phone = utils.normalize_phone(From)
-    text = Body.strip()
+def twilio_webhook(From: str = Form(...), Body: str = Form(...)):
+    phone = From.replace("+", "")
+    msg = Body.strip()
 
-    state = crud.get_state(db, phone)
-    if not state:
-        state = models.ConversationState(phone=phone, step="start")
-        crud.save_state(db, state)
+    if phone not in user_sessions or msg.lower() in ["hi", "hello", "start"]:
+        user_sessions[phone] = {"step": "name"}
+        return {"message": "What's your name?"}
 
-    step = state.step
-    next_step, msg = conversation_state.next_prompt(step, text)
+    session = user_sessions[phone]
 
-    if step == "ask_name" and next_step == "ask_product":
-        state.temp_name = text
+    # STEP 1 — NAME
+    if session["step"] == "name":
+        session["name"] = msg
+        session["step"] = "product"
+        return {"message": "Which product is this review for?"}
 
-    if step == "ask_product" and next_step == "ask_rating":
-        state.temp_product = text
+    # STEP 2 — PRODUCT
+    if session["step"] == "product":
+        session["product"] = msg
+        session["step"] = "rating"
+        return {"message": "Give rating (1-5)."}
 
-    if step == "ask_rating" and next_step == "ask_review":
-        state.temp_rating = int(text)
+    # STEP 3 — RATING
+    if session["step"] == "rating":
+        # Validate rating is number
+        if not msg.isdigit():
+            return {"message": "Rating must be a number between 1-5."}
 
-    if next_step == "save":
-        review = schemas.ReviewCreate(
+        rating = int(msg)
+        if rating < 1 or rating > 5:
+            return {"message": "Rating must be a number between 1-5."}
+
+        session["rating"] = rating
+        session["step"] = "review"
+        return {"message": "Write your review."}
+
+    # STEP 4 — REVIEW TEXT
+    if session["step"] == "review":
+        review_text = msg
+
+        db = SessionLocal()
+        review = Review(
             phone=phone,
-            user_name=state.temp_name,
-            product_name=state.temp_product,
-            rating=state.temp_rating,
-            review_text=text,
+            user_name=session["name"],
+            product_name=session["product"],
+            rating=session["rating"],
+            product_review=review_text,
+            created_at=datetime.utcnow()
         )
-        crud.create_review(db, review)
-        crud.delete_state(db, state)
-        return {"message": "Review saved successfully!"}
+        db.add(review)
+        db.commit()
+        db.refresh(review)
+        db.close()
 
-    if next_step == "cancel":
-        crud.delete_state(db, state)
-        return {"message": "Cancelled."}
+        del user_sessions[phone]
 
-    state.step = next_step
-    crud.save_state(db, state)
-
-    return {"message": msg}
+        return {
+            "message": f"Thanks {review.user_name}! Your review for {review.product_name} has been saved."
+        }

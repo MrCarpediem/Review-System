@@ -1,29 +1,38 @@
 import { useEffect, useState } from "react";
+import axios from "axios";
 
-function App() {
+export default function App() {
   const [reviews, setReviews] = useState([]);
 
   useEffect(() => {
-    fetch("http://localhost:8000/api/reviews")
-      .then((res) => res.json())
-      .then((data) => setReviews(data));
+    axios.get("http://localhost:8000/api/reviews").then(res => {
+      setReviews(res.data);
+    });
   }, []);
 
   return (
-    <div style={{ padding: 20 }}>
-      <h1>Reviews</h1>
-      {!reviews.length && <p>No reviews yet.</p>}
-
-      {reviews.map((r) => (
-        <div key={r.id} style={{ border: "1px solid #ccc", padding: 10, marginBottom: 10 }}>
-          <p><b>Phone:</b> {r.phone}</p>
-          <p><b>Product:</b> {r.product}</p>
-          <p><b>Rating:</b> {r.rating}</p>
-          <p><b>Comment:</b> {r.comment}</p>
-        </div>
-      ))}
+    <div style={{ padding: "20px" }}>
+      <h1>Saved Reviews</h1>
+      <table border="1" cellPadding="10">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Product</th>
+            <th>Rating</th>
+            <th>Review</th>
+          </tr>
+        </thead>
+        <tbody>
+          {reviews.map(r => (
+            <tr key={r.id}>
+              <td>{r.user_name}</td>
+              <td>{r.product_name}</td>
+              <td>{r.rating}</td>
+              <td>{r.product_review}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
-
-export default App;
