@@ -1,38 +1,87 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
+import "./App.css";
 
-export default function App() {
+function App() {
   const [reviews, setReviews] = useState([]);
+  const [search, setSearch] = useState("");
+  const [error, setError] = useState(false);
+
+  // Backend URL
+  const API_URL = "http://127.0.0.1:8000/api/reviews";
+
+  const loadReviews = async () => {
+    try {
+      setError(false);
+      const res = await fetch(API_URL);
+      if (!res.ok) throw new Error("Backend not responding");
+
+      const data = await res.json();
+      setReviews(data);
+    } catch (err) {
+      setError(true);
+      console.log("Error:", err);
+    }
+  };
 
   useEffect(() => {
-    axios.get("http://localhost:8000/api/reviews").then(res => {
-      setReviews(res.data);
-    });
+    loadReviews();
   }, []);
 
+  const filtered = reviews.filter((r) =>
+    r.product_name?.toLowerCase().includes(search.toLowerCase()) ||
+    r.user_name?.toLowerCase().includes(search.toLowerCase()) ||
+    r.contact_number?.includes(search)
+  );
+
   return (
-    <div style={{ padding: "20px" }}>
-      <h1>Saved Reviews</h1>
-      <table border="1" cellPadding="10">
+    <div className="container">
+      <h1 className="title">📱 WhatsApp Product Review Dashboard</h1>
+
+      {error && (
+        <div className="error-box">❌ Backend Not Responding!</div>
+      )}
+
+      <input
+        type="text"
+        className="search"
+        placeholder="Search reviews..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
+
+      <table className="reviews-table">
         <thead>
           <tr>
-            <th>Name</th>
+            <th>ID</th>
+            <th>Contact</th>
+            <th>User</th>
             <th>Product</th>
-            <th>Rating</th>
             <th>Review</th>
+            <th>Created</th>
           </tr>
         </thead>
+
         <tbody>
-          {reviews.map(r => (
-            <tr key={r.id}>
-              <td>{r.user_name}</td>
-              <td>{r.product_name}</td>
-              <td>{r.rating}</td>
-              <td>{r.product_review}</td>
+          {!error && filtered.length === 0 ? (
+            <tr>
+              <td colSpan="6" className="no-data">No reviews found.</td>
             </tr>
-          ))}
+          ) : (
+            filtered.map((r) => (
+              <tr key={r.id}>
+                <td>{r.id}</td>
+                <td>{r.contact_number}</td>
+                <td>{r.user_name}</td>
+                <td>{r.product_name}</td>
+                <td>{r.product_review}</td>
+                <td>{new Date(r.created_at).toLocaleString()}</td>
+              </tr>
+            ))
+          )}
         </tbody>
       </table>
     </div>
   );
 }
+
+export default App;

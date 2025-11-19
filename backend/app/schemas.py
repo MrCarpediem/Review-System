@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from datetime import datetime
 
 class ReviewCreate(BaseModel):
     phone: str
@@ -14,6 +15,7 @@ class ReviewOut(BaseModel):
     product_name: str
     rating: int
     product_review: str
+    created_at: datetime   # VERY IMPORTANT
 
     class Config:
         from_attributes = True
